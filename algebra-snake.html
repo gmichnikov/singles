@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algebra Snake Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            margin-top: 20px;
+        }
+        #game-canvas {
+            background-color: #121212;
+            border: 3px solid #333;
+        }
+        #game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 600px;
+            margin-bottom: 10px;
+        }
+        #equation, #score, #level {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            z-index: 10;
+            display: none;
+        }
+        .game-over button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .game-over button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            color: #2e8b57;
+            margin-bottom: 0;
+        }
+        .instructions {
+            margin: 10px 0 20px 0;
+            text-align: center;
+            max-width: 600px;
+        }
+        .food-value {
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Algebra Snake</h1>
+    <div class="instructions">
+        Use arrow keys to move the snake. Eat the numbers that correctly solve the equation shown at the top.
+        Eating correct answers increases your score, while incorrect answers decreases your snake length.
+    </div>
+    <div id="game-info">
+        <div id="score">Score: 0</div>
+        <div id="equation">Equation: x + 5 = 10</div>
+        <div id="level">Level: 1</div>
+    </div>
+    <div id="game-container">
+        <canvas id="game-canvas" width="600" height="400"></canvas>
+        <div class="game-over" id="game-over">
+            <div>Game Over!</div>
+            <div id="final-score">Score: 0</div>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game Variables
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const equationElement = document.getElementById('equation');
+        const levelElement = document.getElementById('level');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreElement = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        const gridSize = 20;
+        const foodColors = ['#4CAF50', '#F44336', '#2196F3', '#FF9800', '#9C27B0'];
+        
+        let snake, food, direction, nextDirection, gameSpeed, gameRunning, score, level;
+        let currentEquation = {};
+        let valueLabels = [];
+
+        // Initialize the game
+        function initGame() {
+            snake = [
+                {x: 10 * gridSize, y: 10 * gridSize},
+                {x: 9 * gridSize, y: 10 * gridSize},
+                {x: 8 * gridSize, y: 10 * gridSize}
+            ];
+            
+            food = [];
+            direction = 'right';
+            nextDirection = 'right';
+            level = 1;
+            gameSpeed = 150 - (level * 10);
+            gameRunning = true;
+            score = 0;
+            
+            updateScore(0);
+            generateEquation();
+            createFood(3 + level);
+            gameOverScreen.style.display = 'none';
+            
+            // Start the game loop
+            gameLoop();
+        }
+
+        // Generate algebraic equations based on level
+        function generateEquation() {
+            let x, a, b, operation, equation, answer;
+            
+            // Force a limited range of answers for simplicity (1-10)
+            const targetAnswerRange = () => Math.floor(Math.random() * 10) + 1;
+            
+            switch(Math.min(level, 5)) {
+                case 1: // x + a = b or x - a = b
+                    // First decide what x should be (the answer)
+                    x = targetAnswerRange();
+                    
+                    operation = Math.random() < 0.5 ? '+' : '-';
+                    a = Math.floor(Math.random() * 10) + 1;
+                    
+                    if (operation === '+') {
+                        // If x + a = b, then b = x + a
+                        b = x + a;
+                    } else {
+                        // If x - a = b, then b = x - a
+                        b = x - a;
+                    }
+                    
+                    equation = `x ${operation} ${a} = ${b}`;
+                    answer = x;
+                    break;
+                    
+                case 2: // ax = b or x/a = b
+                    operation = Math.random() < 0.5 ? '*' : '/';
+                    
+                    if (operation === '*') {
+                        // First decide what x should be (the answer)
+                        x = targetAnswerRange();
+                        a = Math.floor(Math.random() * 5) + 2;
+                        // If ax = b, then b = ax
+                        b = a * x;
+                    } else {
+                        // For division, select a and x such that x/a gives a whole number
+                        a = Math.floor(Math.random() * 5) + 2;
+                        // Make x a multiple of a to ensure clean division
+                        x = a * targetAnswerRange();
+                        b = x / a;
+                    }
+                    
+                    equation = operation === '*' ? `${a}x = ${b}` : `x/${a} = ${b}`;
+                    answer = x;
+                    break;
+                    
+                case 3: // ax + b = c
+                    // First decide what x should be (the answer)
+                    x = targetAnswerRange();
+                    a = Math.floor(Math.random() * 5) + 2;
+                    b = Math.floor(Math.random() * 10) + 1;
+                    // If ax + b = c, then c = ax + b
+                    let c = a * x + b;
+                    
+                    equation = `${a}x + ${b} = ${c}`;
+                    answer = x;
+                    break;
+                    
+                case 4: // ax - b = c
+                    // First decide what x should be (the answer)
+                    x = targetAnswerRange();
+                    a = Math.floor(Math.random() * 5) + 2;
+                    b = Math.floor(Math.random() * 10) + 1;
+                    // If ax - b = c, then c = ax - b
+                    let c2 = a * x - b;
+                    
+                    equation = `${a}x - ${b} = ${c2}`;
+                    answer = x;
+                    break;
+                    
+                case 5: // ax + b = cx + d (solve for x)
+                    // First decide what x should be (the answer)
+                    x = targetAnswerRange();
+                    a = Math.floor(Math.random() * 5) + 2;
+                    b = Math.floor(Math.random() * 10) + 5;
+                    let cc = Math.floor(Math.random() * (a-1)) + 1; // Make sure a > c
+                    
+                    // If ax + b = cx + d, and we want x to be our answer,
+                    // then d = ax + b - cx = (a-c)x + b
+                    let d = (a - cc) * x + b;
+                    
+                    equation = `${a}x + ${b} = ${cc}x + ${d}`;
+                    answer = x;
+                    break;
+            }
+            
+            // Double-check that our answer is a positive integer
+            if (isNaN(answer) || answer <= 0 || answer % 1 !== 0) {
+                return generateEquation(); // try again
+            }
+            
+            currentEquation = {
+                equation: equation,
+                answer: answer
+            };
+            
+            equationElement.textContent = `Equation: ${equation} (x = ?)`;
+        }
+
+        // Create food items with numbers
+        function createFood(count) {
+            // Clear previous food and labels
+            food = [];
+            valueLabels.forEach(label => {
+                if (label.parentNode) {
+                    label.parentNode.removeChild(label);
+                }
+            });
+            valueLabels = [];
+
+            // Create an array of positions for the food
+            const foodPositions = [];
+            
+            // Generate all potential positions
+            const maxX = Math.floor(canvas.width / gridSize);
+            const maxY = Math.floor(canvas.height / gridSize);
+            
+            // Get the correct answer
+            const correctAnswer = currentEquation.answer;
+            
+            // Create a pool of wrong answers (different from the correct one)
+            const wrongAnswers = [];
+            for (let i = 1; i <= 15; i++) {
+                if (i !== correctAnswer) {
+                    wrongAnswers.push(i);
+                }
+            }
+            
+            // Shuffle wrong answers
+            wrongAnswers.sort(() => Math.random() - 0.5);
+            
+            // Generate positions for food items
+            for (let i = 0; i < count; i++) {
+                let x, y;
+                let posAttempts = 0;
+                let validPosition = false;
+                
+                while (!validPosition && posAttempts < 50) {
+                    x = Math.floor(Math.random() * maxX) * gridSize;
+                    y = Math.floor(Math.random() * maxY) * gridSize;
+                    posAttempts++;
+                    
+                    // Check if position is valid (not on snake and not on another food)
+                    validPosition = true;
+                    
+                    // Check if on snake
+                    for (let segment of snake) {
+                        if (segment.x === x && segment.y === y) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    
+                    // Check if on another food
+                    if (validPosition) {
+                        for (let pos of foodPositions) {
+                            if (pos.x === x && pos.y === y) {
+                                validPosition = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (validPosition) {
+                    foodPositions.push({x, y});
+                }
+            }
+            
+            // Ensure we have at least one food position for the correct answer
+            if (foodPositions.length === 0) {
+                // Create a default position if no valid positions were found
+                foodPositions.push({
+                    x: Math.floor(canvas.width / (2 * gridSize)) * gridSize,
+                    y: Math.floor(canvas.height / (2 * gridSize)) * gridSize
+                });
+            }
+            
+            // Always include the correct answer as the first food item
+            food.push({
+                x: foodPositions[0].x,
+                y: foodPositions[0].y,
+                value: correctAnswer,
+                correct: true,
+                color: foodColors[0]
+            });
+            
+            // Add wrong answers for remaining positions
+            for (let i = 1; i < foodPositions.length; i++) {
+                food.push({
+                    x: foodPositions[i].x,
+                    y: foodPositions[i].y,
+                    value: wrongAnswers[i - 1],
+                    correct: false,
+                    color: foodColors[i % foodColors.length]
+                });
+            }
+            
+            // Shuffle the food array so the correct answer isn't always first
+            food.sort(() => Math.random() - 0.5);
+            
+            // Create labels for food values
+            food.forEach(foodItem => {
+                const label = document.createElement('div');
+                label.className = 'food-value';
+                label.textContent = foodItem.value;
+                label.style.left = foodItem.x + 'px';
+                label.style.top = foodItem.y + 'px';
+                document.getElementById('game-container').appendChild(label);
+                valueLabels.push(label);
+            });
+        }
+
+        // Check if position is on snake
+        function isPositionOnSnake(x, y) {
+            return snake.some(segment => segment.x === x && segment.y === y);
+        }
+
+        // Update the score display
+        function updateScore(points) {
+            score += points;
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Update the game state
+            moveSnake();
+            
+            // Check for collisions
+            if (checkCollisions()) {
+                gameOver();
+                return;
+            }
+            
+            // Check if snake ate food
+            checkFood();
+            
+            // Draw everything
+            draw();
+            
+            // Update the food value labels
+            updateFoodLabels();
+            
+            // Continue the game loop
+            setTimeout(gameLoop, gameSpeed);
+        }
+
+        // Update food label positions
+        function updateFoodLabels() {
+            food.forEach((foodItem, index) => {
+                if (valueLabels[index]) {
+                    valueLabels[index].style.left = foodItem.x + 'px';
+                    valueLabels[index].style.top = foodItem.y + 'px';
+                }
+            });
+        }
+
+        // Move the snake
+        function moveSnake() {
+            // Update direction
+            direction = nextDirection;
+            
+            // Calculate new head position
+            const head = {x: snake[0].x, y: snake[0].y};
+            
+            switch(direction) {
+                case 'up': head.y -= gridSize; break;
+                case 'down': head.y += gridSize; break;
+                case 'left': head.x -= gridSize; break;
+                case 'right': head.x += gridSize; break;
+            }
+            
+            // Add new head
+            snake.unshift(head);
+            
+            // Remove tail unless food was eaten
+            snake.pop();
+        }
+
+        // Check for collisions with walls or self
+        function checkCollisions() {
+            const head = snake[0];
+            
+            // Wall collisions
+            if (head.x < 0 || head.y < 0 || head.x >= canvas.width || head.y >= canvas.height) {
+                return true;
+            }
+            
+            // Self collision (check if head collides with any other segment)
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // Check if snake ate food
+        function checkFood() {
+            const head = snake[0];
+            
+            for (let i = 0; i < food.length; i++) {
+                if (head.x === food[i].x && head.y === food[i].y) {
+                    // Remove the eaten food and its label
+                    if (valueLabels[i] && valueLabels[i].parentNode) {
+                        valueLabels[i].parentNode.removeChild(valueLabels[i]);
+                    }
+                    
+                    // Handle correct/incorrect answers
+                    if (food[i].correct) {
+                        // Correct answer
+                        updateScore(10 * level);
+                        
+                        // Grow the snake
+                        snake.push({});
+                        
+                        // Increase level after certain scores
+                        if (score >= level * 50 && level < 5) {
+                            level++;
+                            levelElement.textContent = `Level: ${level}`;
+                            gameSpeed = 150 - (level * 10);
+                        }
+                    } else {
+                        // Incorrect answer, shrink the snake
+                        updateScore(-5);
+                        if (snake.length > 3) {
+                            snake.pop();
+                        }
+                    }
+                    
+                    // Generate new equation and food
+                    generateEquation();
+                    createFood(3 + level);
+                    
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // Draw the game
+        function draw() {
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw food
+            food.forEach(f => {
+                ctx.fillStyle = f.color;
+                ctx.fillRect(f.x, f.y, gridSize, gridSize);
+                ctx.strokeStyle = 'white';
+                ctx.strokeRect(f.x, f.y, gridSize, gridSize);
+            });
+            
+            // Draw snake
+            snake.forEach((segment, index) => {
+                // Color gradient for the snake
+                const greenValue = Math.floor(255 * (index / snake.length));
+                ctx.fillStyle = `rgb(0, ${255 - greenValue}, ${greenValue})`;
+                ctx.fillRect(segment.x, segment.y, gridSize, gridSize);
+                
+                // Snake segment border
+                ctx.strokeStyle = 'white';
+                ctx.strokeRect(segment.x, segment.y, gridSize, gridSize);
+                
+                // Draw eyes on head
+                if (index === 0) {
+                    ctx.fillStyle = 'white';
+                    
+                    // Position eyes based on direction
+                    switch(direction) {
+                        case 'up':
+                            ctx.fillRect(segment.x + 4, segment.y + 4, 4, 4);
+                            ctx.fillRect(segment.x + 12, segment.y + 4, 4, 4);
+                            break;
+                        case 'down':
+                            ctx.fillRect(segment.x + 4, segment.y + 12, 4, 4);
+                            ctx.fillRect(segment.x + 12, segment.y + 12, 4, 4);
+                            break;
+                        case 'left':
+                            ctx.fillRect(segment.x + 4, segment.y + 4, 4, 4);
+                            ctx.fillRect(segment.x + 4, segment.y + 12, 4, 4);
+                            break;
+                        case 'right':
+                            ctx.fillRect(segment.x + 12, segment.y + 4, 4, 4);
+                            ctx.fillRect(segment.x + 12, segment.y + 12, 4, 4);
+                            break;
+                    }
+                }
+            });
+        }
+
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            finalScoreElement.textContent = `Final Score: ${score}`;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', e => {
+            // Prevent the default action for arrow keys to avoid scrolling
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                    if (direction !== 'down') nextDirection = 'up';
+                    break;
+                case 'ArrowDown':
+                    if (direction !== 'up') nextDirection = 'down';
+                    break;
+                case 'ArrowLeft':
+                    if (direction !== 'right') nextDirection = 'left';
+                    break;
+                case 'ArrowRight':
+                    if (direction !== 'left') nextDirection = 'right';
+                    break;
+            }
+        });
+
+        restartBtn.addEventListener('click', initGame);
+
+        // Start the game
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
