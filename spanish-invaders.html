@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spanish Invaders</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            background-color: black;
+        }
+        
+        #player {
+            position: absolute;
+            width: 60px;
+            height: 35px;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #00FF00;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: left 0.05s linear;
+        }
+        
+        .invader {
+            position: absolute;
+            width: 100px;
+            height: 35px;
+            background-color: rgba(255, 0, 0, 0.7);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); background-color: rgba(255, 0, 0, 0.7); }
+            50% { transform: scale(1.1); background-color: rgba(255, 0, 0, 0.9); }
+            100% { transform: scale(1); background-color: rgba(255, 0, 0, 0.7); }
+        }
+        
+        .correct-invader {
+            animation: pulse 1.5s infinite;
+        }
+        
+        .bullet {
+            position: absolute;
+            width: 5px;
+            height: 15px;
+            background-color: yellow;
+            border-radius: 2px;
+        }
+        
+        #english-word {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+        }
+        
+        #score {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            font-size: 20px;
+            color: white;
+        }
+        
+        #lives {
+            position: absolute;
+            top: 110px;
+            left: 20px;
+            font-size: 20px;
+            color: white;
+        }
+        
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        #game-over-screen {
+            display: none;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #0066FF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #0044CC;
+        }
+        
+        h1 {
+            color: #00AAFF;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
+        }
+        
+        p {
+            font-size: 18px;
+            max-width: 600px;
+            text-align: center;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: white;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="english-word">English Word</div>
+        <div id="score">Score: 0</div>
+        <div id="lives">Lives: 3</div>
+        <div id="player"></div>
+        
+        <div id="start-screen">
+            <h1>Spanish Invaders</h1>
+            <p>Shoot the Spanish words that match the English word at the top!</p>
+            <p>Use LEFT and RIGHT arrow keys to move, SPACEBAR to shoot</p>
+            <button id="start-button">Start Game</button>
+        </div>
+        
+        <div id="game-over-screen">
+            <h1>Game Over</h1>
+            <p id="final-score">Your score: 0</p>
+            <button id="restart-button">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game elements
+        const gameContainer = document.getElementById('game-container');
+        const player = document.getElementById('player');
+        const englishWordDisplay = document.getElementById('english-word');
+        const scoreDisplay = document.getElementById('score');
+        const livesDisplay = document.getElementById('lives');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const finalScoreDisplay = document.getElementById('final-score');
+        
+        // Create starfield background
+        function createStarfield() {
+            const numStars = 100;
+            for (let i = 0; i < numStars; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.opacity = Math.random();
+                
+                // Vary the star sizes
+                const size = Math.random() * 2 + 1;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                
+                gameContainer.appendChild(star);
+            }
+        }
+        
+        // Create starfield on load
+        createStarfield();
+        
+        // Game variables
+        let playerPosition = window.innerWidth / 2;
+        let playerSpeed = 40;
+        let bullets = [];
+        let invaders = [];
+        let score = 0;
+        let lives = 3;
+        let gameRunning = false;
+        let currentEnglishWord = '';
+        let currentCorrectSpanishWord = '';
+        let gameWidth = window.innerWidth;
+        let gameHeight = window.innerHeight;
+        let recentlyUsedWords = [];
+        let wordFrequencyCounter = {};
+        let correctAnswerTimer = null;
+        
+        // Vocabulary pairs (English -> Spanish)
+        const vocabularyPairs = [
+            { english: "Hello", spanish: "Hola" },
+            { english: "Goodbye", spanish: "Adiós" },
+            { english: "Thank you", spanish: "Gracias" },
+            { english: "Please", spanish: "Por favor" },
+            { english: "Yes", spanish: "Sí" },
+            { english: "No", spanish: "No" },
+            { english: "Water", spanish: "Agua" },
+            { english: "Food", spanish: "Comida" },
+            { english: "Friend", spanish: "Amigo" },
+            { english: "Family", spanish: "Familia" },
+            { english: "House", spanish: "Casa" },
+            { english: "Car", spanish: "Coche" },
+            { english: "Book", spanish: "Libro" },
+            { english: "School", spanish: "Escuela" },
+            { english: "Teacher", spanish: "Profesor" },
+            { english: "Student", spanish: "Estudiante" },
+            { english: "Dog", spanish: "Perro" },
+            { english: "Cat", spanish: "Gato" },
+            { english: "Time", spanish: "Tiempo" },
+            { english: "Day", spanish: "Día" },
+            { english: "Night", spanish: "Noche" },
+            { english: "Morning", spanish: "Mañana" },
+            { english: "Evening", spanish: "Tarde" },
+            { english: "Red", spanish: "Rojo" },
+            { english: "Blue", spanish: "Azul" },
+            { english: "Green", spanish: "Verde" },
+            { english: "Yellow", spanish: "Amarillo" },
+            { english: "Big", spanish: "Grande" },
+            { english: "Small", spanish: "Pequeño" },
+            { english: "Hot", spanish: "Caliente" },
+            { english: "Cold", spanish: "Frío" }
+        ];
+
+        // Initialize game
+        function init() {
+            gameWidth = window.innerWidth;
+            gameHeight = window.innerHeight;
+            playerPosition = gameWidth / 2;
+            player.style.left = `${playerPosition}px`;
+            score = 0;
+            lives = 3;
+            bullets = [];
+            invaders = [];
+            updateScore();
+            updateLives();
+            
+            // Select initial English word
+            selectNewEnglishWord();
+        }
+        
+        // Start game
+        function startGame() {
+            init();
+            gameRunning = true;
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            // Start game loops
+            gameLoop();
+            invaderCreationLoop();
+        }
+        
+        // Select a new English word for the player to match
+        function selectNewEnglishWord() {
+            // Reset timer if it exists
+            if (correctAnswerTimer) {
+                clearTimeout(correctAnswerTimer);
+                correctAnswerTimer = null;
+            }
+            
+            // Keep track of word frequency
+            vocabularyPairs.forEach(pair => {
+                if (!wordFrequencyCounter[pair.english]) {
+                    wordFrequencyCounter[pair.english] = 0;
+                }
+            });
+            
+            // Filter out words used too recently (last 5 words)
+            let availableWords = vocabularyPairs.filter(pair => !recentlyUsedWords.includes(pair.english));
+            
+            // If we're running out of words, reset the recently used list
+            if (availableWords.length < 5) {
+                recentlyUsedWords = [];
+                availableWords = vocabularyPairs;
+            }
+            
+            // Sort by frequency (prefer less frequently used words)
+            availableWords.sort((a, b) => {
+                return (wordFrequencyCounter[a.english] || 0) - (wordFrequencyCounter[b.english] || 0);
+            });
+            
+            // Take a word from the least frequently used third of the available words
+            const candidateWords = availableWords.slice(0, Math.max(3, Math.floor(availableWords.length / 3)));
+            const randomIndex = Math.floor(Math.random() * candidateWords.length);
+            
+            currentEnglishWord = candidateWords[randomIndex].english;
+            currentCorrectSpanishWord = candidateWords[randomIndex].spanish;
+            
+            // Update tracking
+            wordFrequencyCounter[currentEnglishWord]++;
+            recentlyUsedWords.push(currentEnglishWord);
+            if (recentlyUsedWords.length > 5) {
+                recentlyUsedWords.shift();
+            }
+            
+            englishWordDisplay.textContent = currentEnglishWord;
+            
+            // Schedule creation of a correct answer soon after setting a new word
+            setTimeout(() => {
+                if (gameRunning && !invaders.some(inv => inv.isCorrect)) {
+                    createCorrectInvader();
+                }
+            }, 1000);
+        }
+        
+        // Find a clear position for a new invader
+        function findClearPosition(occupiedPositions) {
+            const invaderWidth = 100;
+            const invaderHeight = 35;
+            const minClearanceX = 20; // Minimum horizontal clearance
+            const minClearanceY = 40; // Minimum vertical clearance
+            
+            // Try 10 different positions
+            for (let attempt = 0; attempt < 10; attempt++) {
+                // Generate a random position
+                let x = Math.random() * (gameWidth - invaderWidth - 40) + 20; // Stay away from edges
+                let y = 50; // Start at the top with some margin
+                
+                // Check if this position is clear
+                let clear = true;
+                for (const pos of occupiedPositions) {
+                    // Check if there's overlap with an existing invader plus clearance
+                    if (!(x + invaderWidth + minClearanceX < pos.left || 
+                          x > pos.right + minClearanceX ||
+                          y + invaderHeight + minClearanceY < pos.top || 
+                          y > pos.bottom + minClearanceY)) {
+                        clear = false;
+                        break;
+                    }
+                }
+                
+                if (clear) {
+                    return { x, y };
+                }
+            }
+            
+            // If we couldn't find a clear position, place it in a far corner
+            const rightSideClear = !occupiedPositions.some(pos => pos.right > gameWidth - invaderWidth - 20);
+            return {
+                x: rightSideClear ? gameWidth - invaderWidth - 20 : 20,
+                y: 50
+            };
+        }
+        
+        // Create a new invader with a Spanish word
+        function createInvader() {
+            if (!gameRunning) return;
+            
+            // Check if we can add another invader without causing overlap
+            if (invaders.length > 0) {
+                // Don't add invaders too close to existing ones
+                const lastInvader = invaders[invaders.length - 1];
+                if (lastInvader.y < 80) {
+                    return; // Wait until the last invader moves down a bit
+                }
+            }
+            
+            // Make sure we don't create too many invaders overall
+            if (invaders.length >= 6) {
+                return; // Limit total number of invaders to prevent overwhelming the player
+            }
+            
+            // Only create incorrect answers here - correct answers are handled separately
+            
+            // Check if a correct one already exists
+            const correctExists = invaders.some(inv => inv.isCorrect);
+            
+            // If no correct answer exists, return and let the correct answer creation handle it
+            if (!correctExists) {
+                return;
+            }
+            
+            // Select a random incorrect Spanish word
+            let randomIndex;
+            let attempts = 0;
+            let spanishWord;
+            
+            do {
+                randomIndex = Math.floor(Math.random() * vocabularyPairs.length);
+                spanishWord = vocabularyPairs[randomIndex].spanish;
+                attempts++;
+                // Break after 10 attempts to prevent potential infinite loop
+                if (attempts > 10) break;
+            } while (spanishWord === currentCorrectSpanishWord);
+            
+            // Find positions that are already occupied
+            const occupiedPositions = invaders.map(inv => {
+                return {
+                    left: inv.x,
+                    right: inv.x + inv.width,
+                    top: inv.y,
+                    bottom: inv.y + inv.height
+                };
+            });
+            
+            // Find a clear position for the new invader
+            let position = findClearPosition(occupiedPositions);
+            
+            // Create invader element
+            const invader = document.createElement('div');
+            invader.className = 'invader';
+            invader.textContent = spanishWord;
+            
+            invader.style.left = `${position.x}px`;
+            invader.style.top = `${position.y}px`;
+            
+            // Store invader data
+            const invaderData = {
+                element: invader,
+                x: position.x,
+                y: position.y,
+                width: 100,
+                height: 35,
+                word: spanishWord,
+                isCorrect: false,
+                speed: 1 + Math.random() * 1.5 // Random speed
+            };
+            
+            invaders.push(invaderData);
+            gameContainer.appendChild(invader);
+        }
+        
+        // Create a correct invader in a clear position
+        function createCorrectInvader() {
+            if (!gameRunning) return;
+            
+            // Don't create if one already exists
+            if (invaders.some(inv => inv.isCorrect)) {
+                return;
+            }
+            
+            // Find positions that are already occupied
+            const occupiedPositions = invaders.map(inv => {
+                return {
+                    left: inv.x,
+                    right: inv.x + inv.width,
+                    top: inv.y,
+                    bottom: inv.y + inv.height
+                };
+            });
+            
+            // Find a clear position for the new invader
+            let position = findClearPosition(occupiedPositions);
+            
+            // Create the correct invader
+            const invader = document.createElement('div');
+            invader.className = 'invader correct-invader';
+            invader.textContent = currentCorrectSpanishWord;
+            invader.style.left = `${position.x}px`;
+            invader.style.top = `${position.y}px`;
+            
+            // Store invader data
+            const invaderData = {
+                element: invader,
+                x: position.x,
+                y: position.y,
+                width: 100,
+                height: 35,
+                word: currentCorrectSpanishWord,
+                isCorrect: true,
+                speed: 1.3 // Consistent speed for correct answers
+            };
+            
+            invaders.push(invaderData);
+            gameContainer.appendChild(invader);
+            
+            // Reset the timer
+            if (correctAnswerTimer) {
+                clearTimeout(correctAnswerTimer);
+                correctAnswerTimer = null;
+            }
+        }
+        
+        // Create bullet
+        function createBullet() {
+            if (!gameRunning) return;
+            
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            
+            // Position bullet at exact center of player
+            const bulletX = playerPosition + 27.5; // Center of player (60px width / 2 - bullet width / 2)
+            const bulletY = gameHeight - 55; // Just above player
+            
+            bullet.style.left = `${bulletX}px`;
+            bullet.style.top = `${bulletY}px`;
+            
+            // Store bullet data
+            const bulletData = {
+                element: bullet,
+                x: bulletX,
+                y: bulletY,
+                width: 5,
+                height: 15,
+                speed: 10
+            };
+            
+            bullets.push(bulletData);
+            gameContainer.appendChild(bullet);
+        }
+        
+        // Update game state
+        function update() {
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.y -= bullet.speed;
+                bullet.element.style.top = `${bullet.y}px`;
+                
+                // Remove bullet if it goes off screen
+                if (bullet.y < 0) {
+                    gameContainer.removeChild(bullet.element);
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                
+                // Check for collision with invaders
+                for (let j = invaders.length - 1; j >= 0; j--) {
+                    const invader = invaders[j];
+                    
+                    if (checkCollision(bullet, invader)) {
+                        // Hit an invader
+                        gameContainer.removeChild(bullet.element);
+                        bullets.splice(i, 1);
+                        
+                        // Check if it was the correct Spanish word
+                        if (invader.isCorrect) {
+                            // Correct hit
+                            score += 100;
+                            updateScore();
+                            gameContainer.removeChild(invader.element);
+                            invaders.splice(j, 1);
+                            
+                            // Select a new English word
+                            selectNewEnglishWord();
+                        } else {
+                            // Incorrect hit
+                            lives--;
+                            updateLives();
+                            gameContainer.removeChild(invader.element);
+                            invaders.splice(j, 1);
+                            
+                            if (lives <= 0) {
+                                endGame();
+                            }
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+            
+            // Update invaders
+            for (let i = invaders.length - 1; i >= 0; i--) {
+                const invader = invaders[i];
+                invader.y += invader.speed;
+                invader.element.style.top = `${invader.y}px`;
+                
+                // Remove invader if it goes off screen
+                if (invader.y > gameHeight) {
+                    gameContainer.removeChild(invader.element);
+                    invaders.splice(i, 1);
+                    
+                    // Lose a life if it was the correct word
+                    if (invader.isCorrect) {
+                        lives--;
+                        updateLives();
+                        
+                        if (lives <= 0) {
+                            endGame();
+                        } else {
+                            // Select a new English word since the correct answer is gone
+                            selectNewEnglishWord();
+                        }
+                    }
+                }
+            }
+            
+            // Check if we have a correct answer on screen - if not for longer than 3 seconds, create one
+            const correctExists = invaders.some(inv => inv.isCorrect);
+            if (!correctExists && gameRunning) {
+                if (!correctAnswerTimer) {
+                    correctAnswerTimer = setTimeout(() => {
+                        if (gameRunning && !invaders.some(inv => inv.isCorrect)) {
+                            createCorrectInvader();
+                        }
+                        correctAnswerTimer = null;
+                    }, 2000); // Wait 2 seconds before forcing a correct answer
+                }
+            } else if (correctAnswerTimer) {
+                clearTimeout(correctAnswerTimer);
+                correctAnswerTimer = null;
+            }
+        }
+        
+        // Check collision between two objects
+        function checkCollision(obj1, obj2) {
+            return (
+                obj1.x < obj2.x + obj2.width &&
+                obj1.x + obj1.width > obj2.x &&
+                obj1.y < obj2.y + obj2.height &&
+                obj1.y + obj1.height > obj2.y
+            );
+        }
+        
+        // Update score display
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+        
+        // Update lives display
+        function updateLives() {
+            livesDisplay.textContent = `Lives: ${lives}`;
+        }
+        
+        // Game over
+        function endGame() {
+            gameRunning = false;
+            
+            // Clean up timers
+            if (correctAnswerTimer) {
+                clearTimeout(correctAnswerTimer);
+                correctAnswerTimer = null;
+            }
+            
+            // Clean up bullets and invaders
+            bullets.forEach(bullet => gameContainer.removeChild(bullet.element));
+            invaders.forEach(invader => gameContainer.removeChild(invader.element));
+            
+            bullets = [];
+            invaders = [];
+            
+            // Show game over screen
+            finalScoreDisplay.textContent = `Your score: ${score}`;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (gameRunning) {
+                update();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+        
+        // Loop for creating invaders
+        function invaderCreationLoop() {
+            if (gameRunning) {
+                // Create a normal invader
+                createInvader();
+                
+                // Check if the correct word exists among the invaders
+                const correctExists = invaders.some(inv => inv.isCorrect);
+                
+                // If no correct word exists, create a correct invader
+                if (!correctExists) {
+                    createCorrectInvader();
+                }
+                
+                // Adjust difficulty based on score
+                let invaderDelay = 2000 - Math.min(1500, score / 10);
+                if (invaderDelay < 750) invaderDelay = 750;
+                
+                setTimeout(invaderCreationLoop, invaderDelay);
+            }
+        }
+        
+        // Keyboard controls
+        window.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    playerPosition = Math.max(0, playerPosition - playerSpeed);
+                    player.style.left = `${playerPosition}px`;
+                    break;
+                    
+                case 'ArrowRight':
+                    playerPosition = Math.min(gameWidth - 60, playerPosition + playerSpeed);
+                    player.style.left = `${playerPosition}px`;
+                    break;
+                    
+                case ' ': // Spacebar
+                    createBullet();
+                    e.preventDefault(); // Prevent page scroll
+                    break;
+            }
+        });
+        
+        // Resize handling
+        window.addEventListener('resize', () => {
+            gameWidth = window.innerWidth;
+            gameHeight = window.innerHeight;
+            
+            // Adjust player position
+            playerPosition = Math.min(gameWidth - 60, playerPosition);
+            player.style.left = `${playerPosition}px`;
+        });
+        
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+    </script>
+</body>
+</html>
