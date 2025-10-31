@@ -113,11 +113,18 @@
         border-radius: 50%;
         border: 2px solid #374151;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        flex-shrink: 0;
       }
 
       .color-circle.small {
         width: 2.5rem;
         height: 2.5rem;
+        flex-shrink: 0;
+      }
+
+      .color-circle.palette {
+        width: 2.25rem;
+        height: 2.25rem;
       }
 
       .empty-slot {
@@ -183,8 +190,10 @@
       .color-palette {
         display: flex;
         justify-content: center;
-        gap: 0.75rem;
-        flex-wrap: wrap;
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding: 0.25rem;
       }
 
       .color-button {
@@ -213,7 +222,7 @@
       .guess-row {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 0.75rem;
         background-color: #1f2937;
         padding: 0.75rem;
         border-radius: 0.25rem;
@@ -227,12 +236,14 @@
       .guess-colors {
         display: flex;
         gap: 0.5rem;
+        flex: 1;
       }
 
       .feedback {
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        flex-shrink: 0;
       }
 
       .pegs {
@@ -243,25 +254,28 @@
       }
 
       .peg {
-        width: 0.75rem;
-        height: 0.75rem;
+        width: 1rem;
+        height: 1rem;
         border-radius: 50%;
-        border: 1px solid #9ca3af;
+        border: 2px solid #9ca3af;
       }
 
-      .peg.black {
-        background-color: black;
+      .peg.red {
+        background-color: #ef4444;
+        border-color: #dc2626;
       }
 
       .peg.white {
         background-color: white;
+        border-color: #6b7280;
       }
 
       .feedback-text {
         color: #d1d5db;
-        font-size: 0.875rem;
-        width: 5rem;
-        text-align: right;
+        font-size: 1rem;
+        font-weight: 600;
+        min-width: 4rem;
+        text-align: center;
       }
 
       .empty-state {
@@ -356,7 +370,7 @@
         <div class="section-title">How to Play:</div>
         <ul>
           <li>• Guess the secret 4-color code in 10 tries or less</li>
-          <li>• Black pegs (B): Correct color in correct position</li>
+          <li>• Red pegs (R): Correct color in correct position</li>
           <li>• White pegs (W): Correct color in wrong position</li>
           <li>
             • The counter shows how many codes are still possible based on your
@@ -487,7 +501,9 @@
           button.className = "color-button";
           button.disabled = currentGuess.length >= CODE_LENGTH || gameOver;
           button.onclick = () => addColorToGuess(color);
-          button.appendChild(createColorCircle(color));
+          const circle = createColorCircle(color);
+          circle.classList.add("palette");
+          button.appendChild(circle);
           palette.appendChild(button);
         });
       }
@@ -529,7 +545,7 @@
 
           for (let j = 0; j < entry.feedback.black; j++) {
             const peg = document.createElement("div");
-            peg.className = "peg black";
+            peg.className = "peg red";
             pegs.appendChild(peg);
           }
 
@@ -543,7 +559,7 @@
 
           const text = document.createElement("div");
           text.className = "feedback-text";
-          text.textContent = `${entry.feedback.black}B ${entry.feedback.white}W`;
+          text.textContent = `${entry.feedback.black}R ${entry.feedback.white}W`;
           feedback.appendChild(text);
 
           row.appendChild(feedback);
