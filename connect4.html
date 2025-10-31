@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect 4</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      h1 {
+        color: white;
+        margin-bottom: 20px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        font-size: 2.5em;
+      }
+
+      .game-info {
+        color: white;
+        font-size: 1.5em;
+        margin-bottom: 20px;
+        text-align: center;
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .current-player-indicator {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: inline-block;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+      }
+
+      .board-container {
+        background: #0066cc;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        position: relative;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: repeat(7, 70px);
+        grid-template-rows: repeat(6, 70px);
+        gap: 10px;
+        background: #0055aa;
+        padding: 15px;
+        border-radius: 15px;
+      }
+
+      .cell {
+        width: 70px;
+        height: 70px;
+        background: white;
+        border-radius: 50%;
+        cursor: pointer;
+        position: relative;
+        box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .cell.preview {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      .cell.preview.yellow {
+        background: rgba(255, 215, 0, 0.4);
+      }
+
+      .cell.preview.red {
+        background: rgba(220, 20, 60, 0.4);
+      }
+
+      .cell.yellow:not(.preview) {
+        background: radial-gradient(circle at 30% 30%, #ffd700, #ffb700);
+        animation: dropIn 0.5s ease-out;
+      }
+
+      .cell.red:not(.preview) {
+        background: radial-gradient(circle at 30% 30%, #dc143c, #a00020);
+        animation: dropIn 0.5s ease-out;
+      }
+
+      @keyframes dropIn {
+        0% {
+          transform: translateY(-400px);
+          opacity: 0;
+        }
+        60% {
+          transform: translateY(10px);
+        }
+        80% {
+          transform: translateY(-5px);
+        }
+        100% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .cell.winning {
+        animation: winPulse 0.8s infinite;
+      }
+
+      @keyframes winPulse {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+        }
+        50% {
+          transform: scale(1.15);
+          box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0);
+        }
+      }
+
+      .doomed {
+        animation: shake 0.5s infinite, doom-glow 1s infinite;
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0) rotate(0deg);
+        }
+        25% {
+          transform: translateX(-5px) rotate(-2deg);
+        }
+        75% {
+          transform: translateX(5px) rotate(2deg);
+        }
+      }
+
+      @keyframes doom-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 20px 5px rgba(255, 0, 0, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 40px 15px rgba(255, 0, 0, 0.8);
+        }
+      }
+
+      .controls {
+        margin-top: 30px;
+        display: flex;
+        gap: 15px;
+      }
+
+      button {
+        padding: 15px 40px;
+        font-size: 1.2em;
+        background: white;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      button:active {
+        transform: translateY(-1px);
+      }
+
+      .doom-message {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: #ff0000;
+        padding: 30px 50px;
+        border-radius: 20px;
+        font-size: 2em;
+        font-weight: bold;
+        text-align: center;
+        z-index: 1000;
+        animation: doom-appear 0.5s ease-out;
+        border: 3px solid #ff0000;
+        box-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+      }
+
+      @keyframes doom-appear {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.5);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        background: #f0f;
+        position: absolute;
+        animation: confetti-fall 3s linear;
+      }
+
+      @keyframes confetti-fall {
+        to {
+          transform: translateY(100vh) rotate(360deg);
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔴 Connect 4 🟡</h1>
+    <div class="game-info" id="gameInfo">
+      <span class="current-player-indicator" id="playerIndicator"></span>
+      <span id="statusText">Yellow's Turn</span>
+    </div>
+    <div class="board-container">
+      <div class="board" id="board"></div>
+    </div>
+    <div class="controls">
+      <button onclick="resetGame()">Start Over</button>
+    </div>
+
+    <script>
+      const ROWS = 6;
+      const COLS = 7;
+      const YELLOW = "yellow";
+      const RED = "red";
+
+      let board = [];
+      let currentPlayer = YELLOW;
+      let gameOver = false;
+      let isDoomState = false;
+      let doomMessageShown = false;
+
+      // Initialize the game
+      function initGame() {
+        board = Array(ROWS)
+          .fill(null)
+          .map(() => Array(COLS).fill(null));
+        currentPlayer = YELLOW;
+        gameOver = false;
+        isDoomState = false;
+        doomMessageShown = false;
+
+        const boardElement = document.getElementById("board");
+        boardElement.innerHTML = "";
+        boardElement.classList.remove("doomed");
+
+        // Create cells (bottom to top, left to right for proper grid layout)
+        for (let row = 0; row < ROWS; row++) {
+          for (let col = 0; col < COLS; col++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.row = row;
+            cell.dataset.col = col;
+            cell.addEventListener("click", () => handleCellClick(col));
+            cell.addEventListener("mouseenter", () =>
+              handleCellHover(col, true)
+            );
+            cell.addEventListener("mouseleave", () =>
+              handleCellHover(col, false)
+            );
+            boardElement.appendChild(cell);
+          }
+        }
+
+        updateStatus();
+      }
+
+      function handleCellClick(col) {
+        if (gameOver) return;
+
+        const row = getLowestEmptyRow(col);
+        if (row === -1) return; // Column is full
+
+        board[row][col] = currentPlayer;
+        updateCell(row, col, currentPlayer);
+
+        if (checkWin(row, col)) {
+          gameOver = true;
+          showWinner();
+          createConfetti();
+        } else if (isBoardFull()) {
+          gameOver = true;
+          document.getElementById("statusText").textContent = "It's a Draw!";
+        } else {
+          currentPlayer = currentPlayer === YELLOW ? RED : YELLOW;
+          updateStatus();
+          checkDoomState();
+        }
+      }
+
+      function handleCellHover(col, isEntering) {
+        if (gameOver) return;
+
+        const row = getLowestEmptyRow(col);
+        if (row === -1) return;
+
+        const cell = getCell(row, col);
+        if (isEntering) {
+          cell.classList.add("preview", currentPlayer);
+        } else {
+          cell.classList.remove("preview", YELLOW, RED);
+        }
+      }
+
+      function getLowestEmptyRow(col) {
+        for (let row = ROWS - 1; row >= 0; row--) {
+          if (board[row][col] === null) {
+            return row;
+          }
+        }
+        return -1;
+      }
+
+      function updateCell(row, col, player) {
+        const cell = getCell(row, col);
+        cell.classList.remove("preview");
+        cell.classList.add(player);
+      }
+
+      function getCell(row, col) {
+        return document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+      }
+
+      function checkWin(row, col) {
+        const player = board[row][col];
+
+        // Check horizontal
+        const horizontal =
+          countDirection(row, col, 0, 1, player) +
+          countDirection(row, col, 0, -1, player) +
+          1;
+        if (horizontal >= 4) {
+          highlightWinningCells(row, col, 0, 1, player);
+          return true;
+        }
+
+        // Check vertical
+        const vertical =
+          countDirection(row, col, 1, 0, player) +
+          countDirection(row, col, -1, 0, player) +
+          1;
+        if (vertical >= 4) {
+          highlightWinningCells(row, col, 1, 0, player);
+          return true;
+        }
+
+        // Check diagonal (/)
+        const diagonal1 =
+          countDirection(row, col, -1, 1, player) +
+          countDirection(row, col, 1, -1, player) +
+          1;
+        if (diagonal1 >= 4) {
+          highlightWinningCells(row, col, -1, 1, player);
+          return true;
+        }
+
+        // Check diagonal (\)
+        const diagonal2 =
+          countDirection(row, col, -1, -1, player) +
+          countDirection(row, col, 1, 1, player) +
+          1;
+        if (diagonal2 >= 4) {
+          highlightWinningCells(row, col, -1, -1, player);
+          return true;
+        }
+
+        return false;
+      }
+
+      function countDirection(row, col, rowDir, colDir, player) {
+        let count = 0;
+        let r = row + rowDir;
+        let c = col + colDir;
+
+        while (
+          r >= 0 &&
+          r < ROWS &&
+          c >= 0 &&
+          c < COLS &&
+          board[r][c] === player
+        ) {
+          count++;
+          r += rowDir;
+          c += colDir;
+        }
+
+        return count;
+      }
+
+      function highlightWinningCells(row, col, rowDir, colDir, player) {
+        const cells = [[row, col]];
+
+        // Forward direction
+        let r = row + rowDir;
+        let c = col + colDir;
+        while (
+          r >= 0 &&
+          r < ROWS &&
+          c >= 0 &&
+          c < COLS &&
+          board[r][c] === player
+        ) {
+          cells.push([r, c]);
+          r += rowDir;
+          c += colDir;
+        }
+
+        // Backward direction
+        r = row - rowDir;
+        c = col - colDir;
+        while (
+          r >= 0 &&
+          r < ROWS &&
+          c >= 0 &&
+          c < COLS &&
+          board[r][c] === player
+        ) {
+          cells.push([r, c]);
+          r -= rowDir;
+          c -= colDir;
+        }
+
+        cells.forEach(([r, c]) => {
+          getCell(r, c).classList.add("winning");
+        });
+      }
+
+      function isBoardFull() {
+        return board[0].every((cell) => cell !== null);
+      }
+
+      function updateStatus() {
+        const statusText = document.getElementById("statusText");
+        const indicator = document.getElementById("playerIndicator");
+
+        statusText.textContent = `${
+          currentPlayer === YELLOW ? "Yellow" : "Red"
+        }'s Turn`;
+        indicator.style.background =
+          currentPlayer === YELLOW
+            ? "radial-gradient(circle at 30% 30%, #ffd700, #ffb700)"
+            : "radial-gradient(circle at 30% 30%, #dc143c, #a00020)";
+      }
+
+      function showWinner() {
+        const statusText = document.getElementById("statusText");
+        statusText.textContent = `${
+          currentPlayer === YELLOW ? "🟡 Yellow" : "🔴 Red"
+        } Wins!`;
+      }
+
+      function checkDoomState() {
+        // Check if current player is in a "doomed" state where opponent has multiple winning threats
+        const opponent = currentPlayer === YELLOW ? RED : YELLOW;
+        const winningThreats = countWinningThreats(opponent);
+
+        if (winningThreats >= 2 && !doomMessageShown) {
+          // Current player is doomed!
+          isDoomState = true;
+          doomMessageShown = true;
+          showDoomMessage();
+        }
+      }
+
+      function countWinningThreats(player) {
+        let threats = 0;
+
+        // Check each column for immediate winning moves
+        for (let col = 0; col < COLS; col++) {
+          const row = getLowestEmptyRow(col);
+          if (row !== -1) {
+            // Simulate the move
+            board[row][col] = player;
+            if (checkWinSimulation(row, col, player)) {
+              threats++;
+            }
+            board[row][col] = null;
+          }
+        }
+
+        return threats;
+      }
+
+      function checkWinSimulation(row, col, player) {
+        // Check if this position creates a win (without highlighting)
+        const horizontal =
+          countDirection(row, col, 0, 1, player) +
+          countDirection(row, col, 0, -1, player) +
+          1;
+        if (horizontal >= 4) return true;
+
+        const vertical =
+          countDirection(row, col, 1, 0, player) +
+          countDirection(row, col, -1, 0, player) +
+          1;
+        if (vertical >= 4) return true;
+
+        const diagonal1 =
+          countDirection(row, col, -1, 1, player) +
+          countDirection(row, col, 1, -1, player) +
+          1;
+        if (diagonal1 >= 4) return true;
+
+        const diagonal2 =
+          countDirection(row, col, -1, -1, player) +
+          countDirection(row, col, 1, 1, player) +
+          1;
+        if (diagonal2 >= 4) return true;
+
+        return false;
+      }
+
+      function showDoomMessage() {
+        const message = document.createElement("div");
+        message.className = "doom-message";
+        message.textContent =
+          "💀 DOOMED! 💀\nYour opponent has multiple winning moves!";
+        message.style.whiteSpace = "pre-line";
+        document.body.appendChild(message);
+
+        // Add shake effect to board
+        document.querySelector(".board-container").classList.add("doomed");
+
+        // Remove message after 3 seconds
+        setTimeout(() => {
+          message.remove();
+          document.querySelector(".board-container").classList.remove("doomed");
+        }, 3000);
+      }
+
+      function createConfetti() {
+        const colors = [
+          "#ffd700",
+          "#dc143c",
+          "#00ff00",
+          "#00ffff",
+          "#ff00ff",
+          "#ff8800",
+        ];
+
+        for (let i = 0; i < 50; i++) {
+          setTimeout(() => {
+            const confetti = document.createElement("div");
+            confetti.style.position = "fixed";
+            confetti.style.left = Math.random() * 100 + "%";
+            confetti.style.top = "-10px";
+            confetti.style.width = "10px";
+            confetti.style.height = "10px";
+            confetti.style.background =
+              colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.borderRadius = Math.random() > 0.5 ? "50%" : "0";
+            confetti.style.animation = `confetti-fall ${
+              2 + Math.random() * 2
+            }s linear`;
+            confetti.style.zIndex = "999";
+            document.body.appendChild(confetti);
+
+            setTimeout(() => confetti.remove(), 4000);
+          }, i * 30);
+        }
+      }
+
+      function resetGame() {
+        // Remove any doom messages
+        document.querySelectorAll(".doom-message").forEach((el) => el.remove());
+        initGame();
+      }
+
+      // Start the game
+      initGame();
+    </script>
+  </body>
+</html>
